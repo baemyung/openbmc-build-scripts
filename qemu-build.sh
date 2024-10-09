@@ -21,6 +21,9 @@
 #                     Default: "", proxy is not setup if this is not set
 #  WORKSPACE          Path of the workspace directory where the build will
 #                     occur, and output artifacts will be produced.
+#  DOCKER_REG:        <optional, the URL of a docker registry to utilize
+#                     instead of our default (public.ecr.aws/ubuntu)
+#                     (ex. docker.io)
 #
 ###############################################################################
 # Trace bash processing
@@ -34,8 +37,7 @@ if [ -z ${WORKSPACE+x} ]; then
     exit 1
 fi
 
-# Determine the architecture
-ARCH=$(uname -m)
+docker_reg=${DOCKER_REG:-"public.ecr.aws/ubuntu"}
 
 # Docker Image Build Variables:
 img_name=qemu-build
