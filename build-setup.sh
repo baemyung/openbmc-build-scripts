@@ -21,6 +21,11 @@
 #  ENV_LOCAL_CONF     [optional] The environment variables to inject into the
 #                     build, which will be written into local.conf.
 #                     default is empty.
+#  CONTAINER_ONLY     Set to "true" if you only want to build the docker
+#                     container. The bitbake will not occur in this case.
+#  DOCKER_REG:        <optional, the URL of a docker registry to utilize
+#                     instead of our default (public.ecr.aws/ubuntu)
+#                     (ex. docker.io or public.ecr.aws/docker/library)
 #
 # Docker Image Build Variables:
 #  BITBAKE_OPTS       Set to "-c populate_sdk" or whatever other BitBake options
@@ -30,10 +35,11 @@
 #                     container, path cannot be located on network storage.
 #                     Default: "$WORKSPACE/build"
 #  distro             The distro used as the base image for the build image:
-#                     fedora|ubuntu
+#                     fedora|ubuntu. Note that if you chose fedora, you will
+#                     need to also update DOCKER_REG to a supported fedora reg.
 #                     Default: "ubuntu"
 #  img_name           The name given to the target build's docker image.
-#                     Default: "openbmc/${distro}:${imgtag}-${target}-${ARCH}"
+#                     Default: "openbmc/${distro}:${imgtag}-${target}"
 #  img_tag            The base docker image distro tag:
 #                     ubuntu: latest|16.04|14.04|trusty|xenial
 #                     fedora: 23|24|25
@@ -44,7 +50,7 @@
 #                     Default: "qemuarm"
 #  no_tar             Set to true if you do not want the debug tar built
 #                     Default: "false"
-#  nice_priority      Set nice priotity for bitbake command.
+#  nice_priority      Set nice priority for bitbake command.
 #                     Nice:
 #                       Run with an adjusted niceness, which affects process
 #                       scheduling. Nice values range from -20 (most favorable
@@ -84,6 +90,8 @@ WORKSPACE=${WORKSPACE:-${HOME}/${RANDOM}${RANDOM}}
 num_cpu=${num_cpu:-$(nproc)}
 UBUNTU_MIRROR=${UBUNTU_MIRROR:-""}
 ENV_LOCAL_CONF=${ENV_LOCAL_CONF:-""}
+container_only=${CONTAINER_ONLY:-false}
+docker_reg=${DOCKER_REG:-"public.ecr.aws/ubuntu"}
 
 # Docker Image Build Variables:
 build_dir=${build_dir:-${WORKSPACE}/build}
@@ -112,30 +120,11 @@ if [[ -n "${UBUNTU_MIRROR}" ]]; then
         echo \"deb ${UBUNTU_MIRROR} \$(. /etc/os-release && echo \$VERSION_CODENAME)-backports main restricted universe multiverse\" >> /etc/apt/sources.list"
 fi
 
-# Determine the architecture
-ARCH=$(uname -m)
-
-# Determine the prefix of the Dockerfile's base image
-case ${ARCH} in
-    "ppc64le")
-        DOCKER_BASE="ppc64le/"
-        ;;
-    "x86_64")
-        DOCKER_BASE=""
-        ;;
-    "aarch64")
-        DOCKER_BASE="arm64v8/"
-        ;;
-    *)
-        echo "Unsupported system architecture(${ARCH}) found for docker image"
-        exit 1
-esac
-
 # Timestamp for job
 echo "Build started, $(date)"
 
 # If the obmc_dir directory doesn't exist clone it in
-if [ ! -d "${obmc_dir}" ]; then
+if [ ! -d "${obmc_dir}" ] && [ "${container_only}" = false ]; then
     echo "Clone in openbmc master to ${obmc_dir}"
     git clone https://github.com/openbmc/openbmc "${obmc_dir}"
 fi
@@ -173,7 +162,7 @@ if [[ "${distro}" == fedora ]];then
     fi
 
     Dockerfile=$(cat << EOF
-  FROM ${DOCKER_BASE}${distro}:${img_tag}
+  FROM ${docker_reg}/${distro}:${img_tag}
 
   ${PROXY}
 
@@ -226,7 +215,7 @@ elif [[ "${distro}" == ubuntu ]]; then
     fi
 
     Dockerfile=$(cat << EOF
-  FROM ${DOCKER_BASE}${distro}:${img_tag}
+  FROM ${docker_reg}/${distro}:${img_tag}
 
   ${PROXY}
   ${MIRROR}
@@ -393,7 +382,7 @@ EOF_SCRIPT
 chmod a+x "${WORKSPACE}/build.sh"
 
 # Give the Docker image a name based on the distro,tag,arch,and target
-img_name=${img_name:-openbmc/${distro}:${img_tag}-${target}-${ARCH}}
+img_name=${img_name:-openbmc/${distro}:${img_tag}-${target}}
 
 # Ensure appropriate docker build output to see progress and identify
 # any issues
