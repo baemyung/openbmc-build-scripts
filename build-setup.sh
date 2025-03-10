@@ -232,6 +232,7 @@ elif [[ "${distro}" == ubuntu ]]; then
       file \
       gawk \
       git \
+      git-lfs \
       iputils-ping \
       libdata-dumper-simple-perl \
       lz4 \
@@ -245,6 +246,12 @@ elif [[ "${distro}" == ubuntu ]]; then
       vim \
       wget \
       zstd
+
+# Install extra clang tools
+RUN apt-get install -y \
+	clang \
+        clang-format \
+	clang-tidy
 
   # Set the locale
   RUN locale-gen en_US.UTF-8
