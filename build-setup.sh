@@ -233,6 +233,7 @@ elif [[ "${distro}" == ubuntu ]]; then
       file \
       gawk \
       git \
+      git-lfs \
       iputils-ping \
       libdata-dumper-simple-perl \
       lz4 \
@@ -246,6 +247,9 @@ elif [[ "${distro}" == ubuntu ]]; then
       vim \
       wget \
       zstd
+
+  # Setup git lfs
+  RUN git lfs install
 
   # Set the locale
   RUN locale-gen en_US.UTF-8
@@ -388,7 +392,7 @@ EOF_SCRIPT
 chmod a+x "${WORKSPACE}/build.sh"
 
 # Give the Docker image a name based on the distro,tag,arch,and target
-img_name=${img_name:-openbmc/${distro}:${img_tag}-${target}}
+img_name=${img_name:-openbmc/${distro}:${img_tag}-${target}-upstream}
 
 # Ensure appropriate docker build output to see progress and identify
 # any issues
