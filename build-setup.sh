@@ -232,6 +232,7 @@ elif [[ "${distro}" == ubuntu ]]; then
       file \
       gawk \
       git \
+      git-lfs \
       iputils-ping \
       libdata-dumper-simple-perl \
       lz4 \
@@ -247,6 +248,9 @@ elif [[ "${distro}" == ubuntu ]]; then
       vim \
       wget \
       zstd
+
+  # Setup git lfs
+  RUN git lfs install
 
   # Set the locale
   RUN locale-gen en_US.UTF-8
