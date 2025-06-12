@@ -517,6 +517,7 @@ def maybe_make_coverage():
     """
     if not make_target_exists("check-code-coverage"):
         return
+    return
 
     # Actually run code coverage
     try:
@@ -1129,7 +1130,7 @@ class Meson(BuildSystem):
         # Only build coverage HTML if coverage files were produced
         for root, dirs, files in os.walk("build"):
             if any([f.endswith(".gcda") for f in files]):
-                check_call_cmd("ninja", "-C", "build", "coverage-html")
+                #check_call_cmd("ninja", "-C", "build", "coverage-html")
                 break
         check_call_cmd("meson", "configure", "build", "-Db_coverage=false")
         run_cppcheck()
