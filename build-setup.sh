@@ -39,7 +39,7 @@
 #                     need to also update DOCKER_REG to a supported fedora reg.
 #                     Default: "ubuntu"
 #  img_name           The name given to the target build's docker image.
-#                     Default: "openbmc/${distro}:${imgtag}-${target}-${ARCH}"
+#                     Default: "openbmc/${distro}:${imgtag}-${target}"
 #  img_tag            The base docker image distro tag:
 #                     ubuntu: latest|16.04|14.04|trusty|xenial
 #                     fedora: 23|24|25
@@ -50,7 +50,7 @@
 #                     Default: "qemuarm"
 #  no_tar             Set to true if you do not want the debug tar built
 #                     Default: "false"
-#  nice_priority      Set nice priotity for bitbake command.
+#  nice_priority      Set nice priority for bitbake command.
 #                     Nice:
 #                       Run with an adjusted niceness, which affects process
 #                       scheduling. Nice values range from -20 (most favorable
@@ -120,12 +120,11 @@ if [[ -n "${UBUNTU_MIRROR}" ]]; then
         echo \"deb ${UBUNTU_MIRROR} \$(. /etc/os-release && echo \$VERSION_CODENAME)-backports main restricted universe multiverse\" >> /etc/apt/sources.list"
 fi
 
-
 # Timestamp for job
 echo "Build started, $(date)"
 
 # If the obmc_dir directory doesn't exist clone it in
-if [ ! -d "${obmc_dir}" ]; then
+if [ ! -d "${obmc_dir}" ] && [ "${container_only}" = false ]; then
     echo "Clone in openbmc master to ${obmc_dir}"
     git clone https://github.com/openbmc/openbmc "${obmc_dir}"
 fi
@@ -391,6 +390,10 @@ export BUILDKIT_PROGRESS=plain
 
 # Build the Docker image
 docker build -t "${img_name}" - <<< "${Dockerfile}"
+
+if [[ "$container_only" = "true" ]]; then
+    exit 0
+fi
 
 # If obmc_dir or ssc_dir are ${HOME} or a subdirectory they will not be mounted
 mount_obmc_dir="-v ""${obmc_dir}"":""${obmc_dir}"" "
