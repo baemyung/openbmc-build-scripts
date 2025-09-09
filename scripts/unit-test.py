@@ -379,11 +379,21 @@ def run_cppcheck():
     ):
         return None
 
+    cppchkenv = os.environ.copy()
+    cppchkenv["UNIT_TEST_PKG"] = UNIT_TEST_PKG
+    cppchkenv["WORKSPACE"] = WORKSPACE
+
     with TemporaryDirectory() as cpp_dir:
         # http://cppcheck.sourceforge.net/manual.pdf
         try:
+            with open("x.printenv.out", "w") as xenvout :
+                check_call(
+                    ["printenv"], stdout=xenvout, stderr=xenvout
+                )
             check_call_cmd(
-                "cppcheck",
+                os.path.join(
+                    WORKSPACE, "openbmc-build-scripts", "scripts", "run-cppcheck.sh"
+                ),
                 "-j",
                 str(multiprocessing.cpu_count()),
                 "--enable=style,performance,portability,missingInclude",
@@ -396,9 +406,11 @@ def run_cppcheck():
                 "--library=googletest",
                 "--project=build/compile_commands.json",
                 f"--cppcheck-build-dir={cpp_dir}",
+                env=cppchkenv,
             )
         except subprocess.CalledProcessError:
             print("cppcheck found errors")
+            raise Exception("cppcheck found errors")
 
 
 def is_valgrind_safe():
@@ -1416,6 +1428,8 @@ if __name__ == "__main__":
             pass
 
     CODE_SCAN_DIR = os.path.join(WORKSPACE, UNIT_TEST_PKG)
+
+    print("XX: UNIT_TEST_PKG = {}, BRANCH={}, WORKSPACE={}, CODE_SCAN_DIR={}".format(UNIT_TEST_PKG, BRANCH, WORKSPACE, CODE_SCAN_DIR))
 
     # Run format-code.sh, which will in turn call any repo-level formatters.
     if FORMAT_CODE:
