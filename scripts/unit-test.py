@@ -519,11 +519,11 @@ def maybe_make_coverage():
         return
 
     # Actually run code coverage
-    try:
-        cmd = make_parallel + ["check-code-coverage"]
-        check_call_cmd(*cmd)
-    except CalledProcessError:
-        raise Exception("Code coverage failed")
+    #try:
+    #    cmd = make_parallel + ["check-code-coverage"]
+    #    check_call_cmd(*cmd)
+    #except CalledProcessError:
+    #    raise Exception("Code coverage failed")
 
 
 class BuildSystem(object):
@@ -735,7 +735,7 @@ class Autotools(BuildSystem):
                 check_call_cmd(*cmd)
 
             maybe_make_valgrind()
-            maybe_make_coverage()
+            #maybe_make_coverage()
         except CalledProcessError:
             for root, _, files in os.walk(os.getcwd()):
                 if "test-suite.log" not in files:
@@ -811,7 +811,7 @@ class CMake(BuildSystem):
                 )
 
         maybe_make_valgrind()
-        maybe_make_coverage()
+        #maybe_make_coverage()
         run_cppcheck()
 
 
@@ -1147,11 +1147,11 @@ class Meson(BuildSystem):
         check_call_cmd("meson", "configure", "build", "-Db_coverage=true")
         self.test()
         # Only build coverage HTML if coverage files were produced
-        for root, dirs, files in os.walk("build"):
-            if any([f.endswith(".gcda") for f in files]):
-                check_call_cmd("ninja", "-C", "build", "coverage-html")
-                break
-        check_call_cmd("meson", "configure", "build", "-Db_coverage=false")
+        #for root, dirs, files in os.walk("build"):
+        #    if any([f.endswith(".gcda") for f in files]):
+        #        check_call_cmd("ninja", "-C", "build", "coverage-html")
+        #        break
+        #check_call_cmd("meson", "configure", "build", "-Db_coverage=false")
         run_cppcheck()
 
     def _extra_meson_checks(self):

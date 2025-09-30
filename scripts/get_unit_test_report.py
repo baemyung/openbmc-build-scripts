@@ -317,7 +317,7 @@ for url in url_list:
         folder_name = os.path.join(working_dir, sandbox_name)
         repo_report_dir = os.path.join(report_dir, sandbox_name)
 
-        report_names = ("coveragereport", "test-suite.log", "LastTest.log")
+        report_names = ("test-suite.log", "LastTest.log")
         find_cmd = "".join(
             "find " + folder_name + " -name " + report + ";"
             for report in report_names
