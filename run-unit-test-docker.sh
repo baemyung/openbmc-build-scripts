@@ -28,6 +28,9 @@
 #   EXTRA_UNIT_TEST_ARGS:  Optional, pass arguments to unit-test.py
 #   INTERACTIVE: Optional, run a bash shell instead of unit-test.py
 #   http_proxy: Optional, run the container with proxy environment
+#
+#   CPPCHECK_ONLY:   Optional, run cppcheck only and skip all other tests
+#
 
 # Trace bash processing. Set -e so when a step fails, we fail the build
 set -uo pipefail
@@ -44,6 +47,7 @@ DBUS_SYS_CONFIG_FILE=${dbus_sys_config_file:-"/usr/share/dbus-1/system.conf"}
 MAKEFLAGS="${MAKEFLAGS:-""}"
 NO_FORMAT_CODE="${NO_FORMAT_CODE:-}"
 NO_CPPCHECK="${NO_CPPCHECK:-}"
+CPPCHECK_ONLY="${CPPCHECK_ONLY:-}"
 INTERACTIVE="${INTERACTIVE:-}"
 http_proxy=${http_proxy:-}
 
@@ -83,7 +87,7 @@ if [ "${INTERACTIVE}" ]; then
 else
     UNIT_TEST="${UNIT_TEST_SCRIPT_DIR}/${UNIT_TEST_PY},-w,${DOCKER_WORKDIR},\
 -p,${UNIT_TEST_PKG},-b,$BRANCH,\
--v${TEST_ONLY:+,-t}${NO_FORMAT_CODE:+,-n}${NO_CPPCHECK:+,--no-cppcheck}\
+-v${TEST_ONLY:+,-t}${NO_FORMAT_CODE:+,-n}${NO_CPPCHECK:+,--no-cppcheck}${CPPCHECK_ONLY:+,--cppcheck-only}\
 ${EXTRA_UNIT_TEST_ARGS}"
 fi
 
