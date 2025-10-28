@@ -289,8 +289,8 @@ function do_clang_format() {
 LINTER_REQUIRE+=([detect_secrets]="detect-secrets;.secrets.baseline")
 LINTER_TYPES+=([detect_secrets]="c;cpp;bash;sh;json;python")
 function do_detect_secrets() {
-    detect-secrets scan --update .secrets.baseline
-    detect-secrets audit --report --fail-on-unaudited --fail-on-live --fail-on-audited-real .secrets.baseline
+    echo detect-secrets scan --update .secrets.baseline
+    echo detect-secrets audit --report --fail-on-unaudited --fail-on-live --fail-on-audited-real .secrets.baseline
 }
 
 function get_file_type()

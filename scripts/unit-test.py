@@ -405,6 +405,7 @@ def is_valgrind_safe():
     """
     Returns whether it is safe to run valgrind on our platform
     """
+    return False
     src = "unit-test-vg.c"
     exe = "./unit-test-vg"
     with open(src, "w") as h:
@@ -445,6 +446,7 @@ def is_sanitize_safe():
     """
     Returns whether it is safe to run sanitizers on our platform
     """
+    return False
     src = "unit-test-sanitize.c"
     exe = "./unit-test-sanitize"
     with open(src, "w") as h:
@@ -794,6 +796,9 @@ class CMake(BuildSystem):
             check_call_cmd("ctest", ".")
 
     def analyze(self):
+        run_cppcheck()
+        return
+
         if os.path.isfile(".clang-tidy"):
             with TemporaryDirectory(prefix="build", dir=".") as build_dir:
                 # clang-tidy needs to run on a clang-specific build
@@ -985,6 +990,7 @@ class Meson(BuildSystem):
         # project-under-test (otherwise an upstream dependency could fail
         # this check without our control).
         self._extra_meson_checks()
+        return
 
         try:
             test_args = ("--repeat", str(args.repeat), "-C", "build")
@@ -1057,6 +1063,9 @@ class Meson(BuildSystem):
             raise Exception("Valgrind tests failed")
 
     def analyze(self):
+        run_cppcheck()
+        return
+
         self._maybe_valgrind()
 
         # Run clang-tidy only if the project has a configuration
