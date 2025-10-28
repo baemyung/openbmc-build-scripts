@@ -28,6 +28,10 @@
 #   EXTRA_UNIT_TEST_ARGS:  Optional, pass arguments to unit-test.py
 #   INTERACTIVE: Optional, run a bash shell instead of unit-test.py
 #   http_proxy: Optional, run the container with proxy environment
+#
+#   CPPCHECK_ONLY:   Optional, run cppcheck only and skip all other tests
+#   IGNORE_CPPCHECK_ERROR: Optional, Igonore the cppcheck errors
+#
 
 # Trace bash processing. Set -e so when a step fails, we fail the build
 set -uo pipefail
@@ -44,6 +48,8 @@ DBUS_SYS_CONFIG_FILE=${dbus_sys_config_file:-"/usr/share/dbus-1/system.conf"}
 MAKEFLAGS="${MAKEFLAGS:-""}"
 NO_FORMAT_CODE="${NO_FORMAT_CODE:-}"
 NO_CPPCHECK="${NO_CPPCHECK:-}"
+CPPCHECK_ONLY="${CPPCHECK_ONLY:-}"
+IGNORE_CPPCHECK_ERROR="${IGNORE_CPPCHECK_ERROR:-}"
 INTERACTIVE="${INTERACTIVE:-}"
 http_proxy=${http_proxy:-}
 
@@ -76,6 +82,7 @@ export DOCKER_IMG_NAME
 # Allow the user to pass options through to unit-test.py:
 #   EXTRA_UNIT_TEST_ARGS="-r 100" ...
 EXTRA_UNIT_TEST_ARGS="${EXTRA_UNIT_TEST_ARGS:+,${EXTRA_UNIT_TEST_ARGS/ /,}}"
+EXTRA_UNIT_TEST_ARGS+=${CPPCHECK_ONLY:+,--cppcheck-only}${IGNORE_CPPCHECK_ERROR:+,--ignore-cppcheck-error}
 
 # Unit test and parameters
 if [ "${INTERACTIVE}" ]; then
