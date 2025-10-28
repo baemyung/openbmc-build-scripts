@@ -376,11 +376,17 @@ def run_cppcheck():
     if not os.path.exists(os.path.join("build", "compile_commands.json")):
         return None
 
+    cppchkenv = os.environ.copy()
+    cppchkenv["UNIT_TEST_PKG"] = UNIT_TEST_PKG
+    cppchkenv["WORKSPACE"] = WORKSPACE
+
     with TemporaryDirectory() as cpp_dir:
         # http://cppcheck.sourceforge.net/manual.pdf
         try:
             check_call_cmd(
-                "cppcheck",
+                os.path.join(
+                    WORKSPACE, "openbmc-build-scripts", "scripts", "run-cppcheck.sh"
+                ),
                 "-j",
                 str(multiprocessing.cpu_count()),
                 "--enable=style,performance,portability,missingInclude",
@@ -393,9 +399,12 @@ def run_cppcheck():
                 "--library=googletest",
                 "--project=build/compile_commands.json",
                 f"--cppcheck-build-dir={cpp_dir}",
+                env=cppchkenv,
             )
         except subprocess.CalledProcessError:
             print("cppcheck found errors")
+            if FAIL_ON_CPPCHECK_ERROR:
+                raise Exception("cppcheck found errors")
 
 
 def is_valgrind_safe():
@@ -512,6 +521,8 @@ def maybe_make_coverage():
     via `make check-code-coverage`. If the package does not have code coverage
     testing then it just skips over this.
     """
+    if CPPCHECK_ONLY:
+        return
     if not make_target_exists("check-code-coverage"):
         return
 
@@ -719,13 +730,19 @@ class Autotools(BuildSystem):
         check_call_cmd("./configure", *conf_flags)
 
     def build(self):
+        if CPPCHECK_ONLY:
+           return
         check_call_cmd(*make_parallel)
 
     def install(self):
+        if CPPCHECK_ONLY:
+           return
         check_call_cmd("sudo", "-n", "--", *(make_parallel + ["install"]))
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        if CPPCHECK_ONLY:
+           return
         try:
             cmd = make_parallel + ["check"]
             for i in range(0, args.repeat):
@@ -755,6 +772,8 @@ class CMake(BuildSystem):
         return []
 
     def configure(self, build_for_testing):
+        if CPPCHECK_ONLY:
+           return
         self.build_for_testing = build_for_testing
         if INTEGRATION_TEST:
             check_call_cmd(
@@ -773,6 +792,8 @@ class CMake(BuildSystem):
             )
 
     def build(self):
+        if CPPCHECK_ONLY:
+           return
         check_call_cmd(
             "cmake",
             "--build",
@@ -783,14 +804,21 @@ class CMake(BuildSystem):
         )
 
     def install(self):
+        if CPPCHECK_ONLY:
+           return
         check_call_cmd("sudo", "cmake", "--install", ".")
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        if CPPCHECK_ONLY:
+           return
         if make_target_exists("test"):
             check_call_cmd("ctest", ".")
 
     def analyze(self):
+        if CPPCHECK_ONLY:
+            run_cppcheck()
+            return
         if os.path.isfile(".clang-tidy"):
             with TemporaryDirectory(prefix="build", dir=".") as build_dir:
                 # clang-tidy needs to run on a clang-specific build
@@ -955,6 +983,7 @@ class Meson(BuildSystem):
         return meson_flags
 
     def configure(self, build_for_testing):
+        # Note - configure is still needed for CPPCHECK_ONLY
         meson_flags = self.get_configure_flags(build_for_testing)
         try:
             check_call_cmd(
@@ -967,13 +996,19 @@ class Meson(BuildSystem):
         self.package = Meson._project_name("build")
 
     def build(self):
+        if CPPCHECK_ONLY:
+           return
         check_call_cmd("ninja", "-C", "build")
 
     def install(self):
+        if CPPCHECK_ONLY:
+           return
         check_call_cmd("sudo", "-n", "--", "ninja", "-C", "build", "install")
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        if CPPCHECK_ONLY:
+           return
         # It is useful to check various settings of the meson.build file
         # for compatibility, such as meson_version checks.  We shouldn't
         # do this in the configure path though because it affects subprojects
@@ -1053,6 +1088,9 @@ class Meson(BuildSystem):
             raise Exception("Valgrind tests failed")
 
     def analyze(self):
+        if CPPCHECK_ONLY:
+           run_cppcheck()
+           return
         self._maybe_valgrind()
 
         # Run clang-tidy only if the project has a configuration
@@ -1321,6 +1359,22 @@ if __name__ == "__main__":
         default=False,
         help="Only run test cases, no other validation",
     )
+    parser.add_argument(
+        "--fail-on-cppcheck-error",
+        dest="FAIL_ON_CPPCHECK_ERROR",
+        action="store_true",
+        required=False,
+        default=False,        # No CI failure even if cppcheck error by default
+        help="Igonore the cppcheck errors",
+    )
+    parser.add_argument(
+        "--cppcheck-only",
+        dest="CPPCHECK_ONLY",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Only run cppcheck and skip all other tests",
+    )
     arg_inttests = parser.add_mutually_exclusive_group()
     arg_inttests.add_argument(
         "--integration-tests",
@@ -1366,6 +1420,8 @@ if __name__ == "__main__":
     WORKSPACE = args.WORKSPACE
     UNIT_TEST_PKG = args.PACKAGE
     TEST_ONLY = args.TEST_ONLY
+    CPPCHECK_ONLY = args.CPPCHECK_ONLY
+    FAIL_ON_CPPCHECK_ERROR = args.FAIL_ON_CPPCHECK_ERROR
     INTEGRATION_TEST = args.INTEGRATION_TEST
     BRANCH = args.BRANCH
     FORMAT_CODE = args.FORMAT
@@ -1384,7 +1440,7 @@ if __name__ == "__main__":
     CODE_SCAN_DIR = os.path.join(WORKSPACE, UNIT_TEST_PKG)
 
     # Run format-code.sh, which will in turn call any repo-level formatters.
-    if FORMAT_CODE:
+    if (not CPPCHECK_ONLY) and FORMAT_CODE:
         check_call_cmd(
             os.path.join(
                 WORKSPACE, "openbmc-build-scripts", "scripts", "format-code.sh"
@@ -1436,7 +1492,7 @@ if __name__ == "__main__":
     # Run any custom CI scripts the repo has, of which there can be
     # multiple of and anywhere in the repository.
     ci_scripts = find_file(["run-ci.sh", "run-ci"], CODE_SCAN_DIR)
-    if ci_scripts:
+    if (not CPPCHECK_ONLY) and ci_scripts:
         os.chdir(CODE_SCAN_DIR)
         for ci_script in ci_scripts:
             check_call_cmd(ci_script)
