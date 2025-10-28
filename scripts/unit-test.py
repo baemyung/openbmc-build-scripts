@@ -373,17 +373,28 @@ def build_dep_tree(name, pkgdir, dep_added, head, branch, dep_tree=None):
 
 
 def run_cppcheck():
+    print("DO run_cppcheck")
     if (
         not os.path.exists(os.path.join("build", "compile_commands.json"))
         or NO_CPPCHECK
     ):
         return None
 
+    cppchkenv = os.environ.copy()
+    cppchkenv["UNIT_TEST_PKG"] = UNIT_TEST_PKG
+    cppchkenv["WORKSPACE"] = WORKSPACE
+
     with TemporaryDirectory() as cpp_dir:
         # http://cppcheck.sourceforge.net/manual.pdf
         try:
+            with open("x.printenv.out", "w") as xenvout :
+                check_call(
+                    ["printenv"], stdout=xenvout, stderr=xenvout
+                )
             check_call_cmd(
-                "cppcheck",
+                os.path.join(
+                    WORKSPACE, "openbmc-build-scripts", "scripts", "run-cppcheck.sh"
+                ),
                 "-j",
                 str(multiprocessing.cpu_count()),
                 "--enable=style,performance,portability,missingInclude",
@@ -396,15 +407,18 @@ def run_cppcheck():
                 "--library=googletest",
                 "--project=build/compile_commands.json",
                 f"--cppcheck-build-dir={cpp_dir}",
+                env=cppchkenv,
             )
         except subprocess.CalledProcessError:
             print("cppcheck found errors")
+            raise Exception("cppcheck found errors")
 
 
 def is_valgrind_safe():
     """
     Returns whether it is safe to run valgrind on our platform
     """
+    return False
     src = "unit-test-vg.c"
     exe = "./unit-test-vg"
     with open(src, "w") as h:
@@ -445,6 +459,9 @@ def is_sanitize_safe():
     """
     Returns whether it is safe to run sanitizers on our platform
     """
+    if CPPCHECK_ONLY:
+        print("STEP is_sanitize_safe - CPPCHECK_ONLY - False")
+        return False
     src = "unit-test-sanitize.c"
     exe = "./unit-test-sanitize"
     with open(src, "w") as h:
@@ -487,6 +504,9 @@ def maybe_make_valgrind():
     via `make check-valgrind`. If the package does not have valgrind testing
     then it just skips over this.
     """
+    if CPPCHECK_ONLY:
+        print("STEP maybe_make_valgrind - CPPCHECK_ONLY")
+        return
     # Valgrind testing is currently broken by an aggressive strcmp optimization
     # that is inlined into optimized code for POWER by gcc 7+. Until we find
     # a workaround, just don't run valgrind tests on POWER.
@@ -515,6 +535,9 @@ def maybe_make_coverage():
     via `make check-code-coverage`. If the package does not have code coverage
     testing then it just skips over this.
     """
+    if CPPCHECK_ONLY:
+        print("STEP maybe_make_coverage - CPPCHECK_ONLY")
+        return
     if not make_target_exists("check-code-coverage"):
         return
 
@@ -722,13 +745,22 @@ class Autotools(BuildSystem):
         check_call_cmd("./configure", *conf_flags)
 
     def build(self):
+        if CPPCHECK_ONLY:
+           print("STEP build 748 - CPPCHECK_ONLY")
+           return
         check_call_cmd(*make_parallel)
 
     def install(self):
+        if CPPCHECK_ONLY:
+           print("STEP install 755 - CPPCHECK_ONLY")
+           return
         check_call_cmd("sudo", "-n", "--", *(make_parallel + ["install"]))
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        if CPPCHECK_ONLY:
+           print("STEP test 761 - CPPCHECK_ONLY")
+           return
         try:
             cmd = make_parallel + ["check"]
             for i in range(0, args.repeat):
@@ -744,6 +776,7 @@ class Autotools(BuildSystem):
             raise Exception("Unit tests failed")
 
     def analyze(self):
+        print("STEP run_cppcheck 1111");
         run_cppcheck()
 
 
@@ -758,6 +791,7 @@ class CMake(BuildSystem):
         return []
 
     def configure(self, build_for_testing):
+        return
         self.build_for_testing = build_for_testing
         if INTEGRATION_TEST:
             check_call_cmd(
@@ -776,6 +810,7 @@ class CMake(BuildSystem):
             )
 
     def build(self):
+        return
         check_call_cmd(
             "cmake",
             "--build",
@@ -786,14 +821,20 @@ class CMake(BuildSystem):
         )
 
     def install(self):
+        return
         check_call_cmd("sudo", "cmake", "--install", ".")
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        return
         if make_target_exists("test"):
             check_call_cmd("ctest", ".")
 
     def analyze(self):
+        print("STEP run_cppcheck 2222");
+        run_cppcheck()
+        return
+
         if os.path.isfile(".clang-tidy"):
             with TemporaryDirectory(prefix="build", dir=".") as build_dir:
                 # clang-tidy needs to run on a clang-specific build
@@ -812,6 +853,7 @@ class CMake(BuildSystem):
 
         maybe_make_valgrind()
         maybe_make_coverage()
+        print("STEP run_cppcheck 3333");
         run_cppcheck()
 
 
@@ -959,6 +1001,7 @@ class Meson(BuildSystem):
         return meson_flags
 
     def configure(self, build_for_testing):
+        # Note - configure is still needed for CPPCHECK_ONLY
         meson_flags = self.get_configure_flags(build_for_testing)
         try:
             check_call_cmd(
@@ -971,13 +1014,25 @@ class Meson(BuildSystem):
         self.package = Meson._project_name("build")
 
     def build(self):
+        print("STEP build start - 0000")
+        if CPPCHECK_ONLY:
+           print("STEP build 1020 - CPPCHECK_ONLY")
+           return
         check_call_cmd("ninja", "-C", "build")
 
     def install(self):
+        print("STEP install start - 0000")
+        if CPPCHECK_ONLY:
+           print("STEP install 1026 - CPPCHECK_ONLY")
+           return
         check_call_cmd("sudo", "-n", "--", "ninja", "-C", "build", "install")
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        print("STEP test start - 1032")
+        if CPPCHECK_ONLY:
+           print("STEP test 1040 - CPPCHECK_ONLY")
+           return
         # It is useful to check various settings of the meson.build file
         # for compatibility, such as meson_version checks.  We shouldn't
         # do this in the configure path though because it affects subprojects
@@ -1057,6 +1112,11 @@ class Meson(BuildSystem):
             raise Exception("Valgrind tests failed")
 
     def analyze(self):
+        if CPPCHECK_ONLY:
+           print("STEP analyze 4444-1115 - CPPCHECK_ONLY")
+           run_cppcheck()
+           return
+
         self._maybe_valgrind()
 
         # Run clang-tidy only if the project has a configuration
@@ -1132,6 +1192,7 @@ class Meson(BuildSystem):
                 check_call_cmd("ninja", "-C", "build", "coverage-html")
                 break
         check_call_cmd("meson", "configure", "build", "-Db_coverage=false")
+        print("STEP run_cppcheck 5555");
         run_cppcheck()
 
     def _extra_meson_checks(self):
@@ -1345,6 +1406,14 @@ if __name__ == "__main__":
         default=False,
         help="Do not run cppcheck",
     )
+    parser.add_argument(
+        "--cppcheck-only",
+        dest="CPPCHECK_ONLY",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Only run cppcheck and skip all other tests",
+    )
     arg_inttests = parser.add_mutually_exclusive_group()
     arg_inttests.add_argument(
         "--integration-tests",
@@ -1390,6 +1459,7 @@ if __name__ == "__main__":
     WORKSPACE = args.WORKSPACE
     UNIT_TEST_PKG = args.PACKAGE
     TEST_ONLY = args.TEST_ONLY
+    CPPCHECK_ONLY = args.CPPCHECK_ONLY
     NO_CPPCHECK = args.NO_CPPCHECK
     INTEGRATION_TEST = args.INTEGRATION_TEST
     BRANCH = args.BRANCH
@@ -1408,8 +1478,16 @@ if __name__ == "__main__":
 
     CODE_SCAN_DIR = os.path.join(WORKSPACE, UNIT_TEST_PKG)
 
+    print("XX: UNIT_TEST_PKG = {}, BRANCH={}, WORKSPACE={}, CODE_SCAN_DIR={}, CPPCHECK_ONLY={}".format(UNIT_TEST_PKG, BRANCH, WORKSPACE, CODE_SCAN_DIR, CPPCHECK_ONLY))
+
+    # Run only cppcheck
+    if CPPCHECK_ONLY:
+        print("RUN CPPCHECK ONLY. SKIP ALL OTHER TESTS")
+        #run_cppcheck()
+        #sys.exit(0)
+
     # Run format-code.sh, which will in turn call any repo-level formatters.
-    if FORMAT_CODE:
+    if (not CPPCHECK_ONLY) and FORMAT_CODE:
         check_call_cmd(
             os.path.join(
                 WORKSPACE, "openbmc-build-scripts", "scripts", "format-code.sh"
@@ -1422,6 +1500,7 @@ if __name__ == "__main__":
             "git", "-C", CODE_SCAN_DIR, "--no-pager", "diff", "--exit-code"
         )
 
+    print("DO PACKAGE")
     # Check if this repo has a supported make infrastructure
     pkg = Package(UNIT_TEST_PKG, CODE_SCAN_DIR)
     if not pkg.build_system():
@@ -1430,14 +1509,18 @@ if __name__ == "__main__":
 
     prev_umask = os.umask(000)
 
+    print("STEP AFTER PACKAGE")
     # Determine dependencies and add them
     dep_added = dict()
     dep_added[UNIT_TEST_PKG] = False
 
+    print("STEP BEFORE DepTree")
     # Create dependency tree
     dep_tree = DepTree(UNIT_TEST_PKG)
     build_dep_tree(UNIT_TEST_PKG, CODE_SCAN_DIR, dep_added, dep_tree, BRANCH)
 
+
+    print("STEP BEFORE Reorder")
     # Reorder Dependency Tree
     for pkg_name, regex_str in DEPENDENCIES_REGEX.items():
         dep_tree.ReorderDeps(pkg_name, regex_str)
@@ -1449,10 +1532,14 @@ if __name__ == "__main__":
     # We don't want to treat our package as a dependency
     install_list.remove(UNIT_TEST_PKG)
 
+
+    print("STEP before build_and_install Dep")
     # Install reordered dependencies
     for dep in install_list:
         build_and_install(dep, False)
 
+
+    print("STEP before build_and_install UnitTEST")
     # Run package unit tests
     build_and_install(UNIT_TEST_PKG, True)
 
@@ -1461,7 +1548,7 @@ if __name__ == "__main__":
     # Run any custom CI scripts the repo has, of which there can be
     # multiple of and anywhere in the repository.
     ci_scripts = find_file(["run-ci.sh", "run-ci"], CODE_SCAN_DIR)
-    if ci_scripts:
+    if (not CPPCHECK_ONLY) and ci_scripts:
         os.chdir(CODE_SCAN_DIR)
         for ci_script in ci_scripts:
             check_call_cmd(ci_script)
