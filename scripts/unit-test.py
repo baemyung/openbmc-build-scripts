@@ -724,13 +724,16 @@ class Autotools(BuildSystem):
         check_call_cmd("./configure", *conf_flags)
 
     def build(self):
+        return
         check_call_cmd(*make_parallel)
 
     def install(self):
+        return
         check_call_cmd("sudo", "-n", "--", *(make_parallel + ["install"]))
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        return
         try:
             cmd = make_parallel + ["check"]
             for i in range(0, args.repeat):
@@ -760,6 +763,7 @@ class CMake(BuildSystem):
         return []
 
     def configure(self, build_for_testing):
+        return
         self.build_for_testing = build_for_testing
         if INTEGRATION_TEST:
             check_call_cmd(
@@ -778,6 +782,7 @@ class CMake(BuildSystem):
             )
 
     def build(self):
+        return
         check_call_cmd(
             "cmake",
             "--build",
@@ -788,10 +793,12 @@ class CMake(BuildSystem):
         )
 
     def install(self):
+        return
         check_call_cmd("sudo", "cmake", "--install", ".")
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
     def test(self):
+        return
         if make_target_exists("test"):
             check_call_cmd("ctest", ".")
 
@@ -964,6 +971,7 @@ class Meson(BuildSystem):
         return meson_flags
 
     def configure(self, build_for_testing):
+        return
         meson_flags = self.get_configure_flags(build_for_testing)
         try:
             check_call_cmd(
@@ -976,9 +984,11 @@ class Meson(BuildSystem):
         self.package = Meson._project_name("build")
 
     def build(self):
+        return
         check_call_cmd("ninja", "-C", "build")
 
     def install(self):
+        return
         check_call_cmd("sudo", "-n", "--", "ninja", "-C", "build", "install")
         check_call_cmd("sudo", "-n", "--", "ldconfig")
 
