@@ -373,6 +373,7 @@ def build_dep_tree(name, pkgdir, dep_added, head, branch, dep_tree=None):
 
 
 def run_cppcheck():
+    print("DO run_cppcheck")
     if (
         not os.path.exists(os.path.join("build", "compile_commands.json"))
         or NO_CPPCHECK
@@ -761,6 +762,7 @@ class Autotools(BuildSystem):
             raise Exception("Unit tests failed")
 
     def analyze(self):
+        print("STEP run_cppcheck 1111");
         run_cppcheck()
 
 
@@ -815,6 +817,7 @@ class CMake(BuildSystem):
             check_call_cmd("ctest", ".")
 
     def analyze(self):
+        print("STEP run_cppcheck 2222");
         run_cppcheck()
         return
 
@@ -836,6 +839,7 @@ class CMake(BuildSystem):
 
         maybe_make_valgrind()
         maybe_make_coverage()
+        print("STEP run_cppcheck 3333");
         run_cppcheck()
 
 
@@ -1085,6 +1089,7 @@ class Meson(BuildSystem):
             raise Exception("Valgrind tests failed")
 
     def analyze(self):
+        print("STEP run_cppcheck 4444");
         run_cppcheck()
         return
 
@@ -1163,6 +1168,7 @@ class Meson(BuildSystem):
                 check_call_cmd("ninja", "-C", "build", "coverage-html")
                 break
         check_call_cmd("meson", "configure", "build", "-Db_coverage=false")
+        print("STEP run_cppcheck 5555");
         run_cppcheck()
 
     def _extra_meson_checks(self):
@@ -1376,6 +1382,14 @@ if __name__ == "__main__":
         default=False,
         help="Do not run cppcheck",
     )
+    parser.add_argument(
+        "--cppcheck-only",
+        dest="CPPCHECK_ONLY",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Only run cppcheck and skip all other tests",
+    )
     arg_inttests = parser.add_mutually_exclusive_group()
     arg_inttests.add_argument(
         "--integration-tests",
@@ -1421,6 +1435,7 @@ if __name__ == "__main__":
     WORKSPACE = args.WORKSPACE
     UNIT_TEST_PKG = args.PACKAGE
     TEST_ONLY = args.TEST_ONLY
+    CPPCHECK_ONLY = args.CPPCHECK_ONLY
     NO_CPPCHECK = args.NO_CPPCHECK
     INTEGRATION_TEST = args.INTEGRATION_TEST
     BRANCH = args.BRANCH
@@ -1441,8 +1456,14 @@ if __name__ == "__main__":
 
     print("XX: UNIT_TEST_PKG = {}, BRANCH={}, WORKSPACE={}, CODE_SCAN_DIR={}".format(UNIT_TEST_PKG, BRANCH, WORKSPACE, CODE_SCAN_DIR))
 
+    # Run only cppcheck
+    if CPPCHECK_ONLY:
+        print("RUN CPPCHECK ONLY. SKIP ALL OTHER TESTS")
+        #run_cppcheck()
+        #sys.exit(0)
+
     # Run format-code.sh, which will in turn call any repo-level formatters.
-    if FORMAT_CODE:
+    if (not CPPCHECK_ONLY) and FORMAT_CODE:
         check_call_cmd(
             os.path.join(
                 WORKSPACE, "openbmc-build-scripts", "scripts", "format-code.sh"
@@ -1455,6 +1476,7 @@ if __name__ == "__main__":
             "git", "-C", CODE_SCAN_DIR, "--no-pager", "diff", "--exit-code"
         )
 
+    print("DO PACKAGE")
     # Check if this repo has a supported make infrastructure
     pkg = Package(UNIT_TEST_PKG, CODE_SCAN_DIR)
     if not pkg.build_system():
@@ -1494,7 +1516,7 @@ if __name__ == "__main__":
     # Run any custom CI scripts the repo has, of which there can be
     # multiple of and anywhere in the repository.
     ci_scripts = find_file(["run-ci.sh", "run-ci"], CODE_SCAN_DIR)
-    if ci_scripts:
+    if (not CPPCHECK_ONLY) and ci_scripts:
         os.chdir(CODE_SCAN_DIR)
         for ci_script in ci_scripts:
             check_call_cmd(ci_script)
