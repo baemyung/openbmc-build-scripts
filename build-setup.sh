@@ -124,7 +124,7 @@ fi
 echo "Build started, $(date)"
 
 # If the obmc_dir directory doesn't exist clone it in
-if [ ! -d "${obmc_dir}" ]; then
+if [ ! -d "${obmc_dir}" ] && [ "${container_only}" = false ]; then
     echo "Clone in openbmc master to ${obmc_dir}"
     git clone https://github.com/openbmc/openbmc "${obmc_dir}"
 fi
@@ -232,19 +232,25 @@ elif [[ "${distro}" == ubuntu ]]; then
       file \
       gawk \
       git \
+      git-lfs \
       iputils-ping \
       libdata-dumper-simple-perl \
-      liblz4-tool \
+      lz4 \
       libsdl1.2-dev \
       libthread-queue-any-perl \
       locales \
       python3 \
+      python3-dev \
+      python3-setuptools \
       socat \
       subversion \
       texinfo \
       vim \
       wget \
       zstd
+
+  # Setup git lfs
+  RUN git lfs install
 
   # Set the locale
   RUN locale-gen en_US.UTF-8
@@ -387,7 +393,7 @@ EOF_SCRIPT
 chmod a+x "${WORKSPACE}/build.sh"
 
 # Give the Docker image a name based on the distro,tag,arch,and target
-img_name=${img_name:-openbmc/${distro}:${img_tag}-${target}-${ARCH}}
+img_name=${img_name:-openbmc/${distro}:${img_tag}-${target}-1110}
 
 # Ensure appropriate docker build output to see progress and identify
 # any issues
