@@ -26,6 +26,9 @@ CPPCHECK_DEF_OPTS=-D"__cppcheck__=1"
 
 CPPCHECK_STDOUT=${LOGDIR}/cppchk.${REPONAME}.stdout
 CPPCHECK_STDERR=${LOGDIR}/cppchk.${REPONAME}.stderr
+
+BEGIN_DATE=$(date)
+
 cppcheck ${CPPCHECK_DEF_OPTS}  --template="{file}:{line}:{column}: {id}: {severity}: {message}" $args  2> ${CPPCHECK_STDERR} | tee ${CPPCHECK_STDOUT}
 
 CPPCHECK_ERR_LOG=${REPORTDIR}/cppchk.${REPONAME}.error.log
@@ -48,8 +51,13 @@ while read -r filelinecol id severity remaining; do
     fi
 done < ${CPPCHECK_STDERR}
 
+END_DATE=$(date)
+
+echo "run-cppcheck TIMING:  REPO=${REPONAME} BEGIN: ${BEGIN_DATE}, END:${END_DATE}" >> ${CPPCHECK_STDOUT}
+
 if [[ $FAILED -ne 0 ]]
 then
+    echo "run-cppcheck TIMING:  REPO=${REPONAME} BEGIN: ${BEGIN_DATE}, END:${END_DATE}" >> ${CPPCHECK_ERR_LOG}
 	echo "cppcheck ($UNIT_TEST_PKG) failed, CPPCHECK_ERR_LOG=$CPPCHECK_ERR_LOG"
 	cat ${CPPCHECK_ERR_LOG}
 	exit 1
